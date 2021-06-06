@@ -11,8 +11,8 @@ References:
 
 [3] [CSCD70: Compiler Optimization 2021S (University of Toronto)](https://uoft-ecosystem.github.io/CSCD70/index.html)
 
-[4] []()
+[4] Compilers: Principles, Techniques, and Tools 2nd Edition
 
-[5] []()
+[5] [LLVM tutorial](https://llvm.org/docs/tutorial/)
 
  
