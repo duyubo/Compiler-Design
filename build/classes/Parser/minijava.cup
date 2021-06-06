@@ -1,0 +1,287 @@
+/**
+ * CUP specification of the language grammar for a simple demo language.
+ * Change this into the language grammar of MiniJava for your implementation.
+ *
+ * CSE 401/M501/P501 18sp
+ */
+
+package Parser;
+
+import AST.*;
+import java.util.*;
+import java_cup.runtime.*;
+
+/* Terminals (lexical tokens returned by the scanner): */
+
+/* reserved words */
+terminal CLASS, MAIN, PUBLIC, STATIC, VOID, EXTENDS, RETURN, NEW;
+terminal DISPLAY, IF, THEN, ELSE, WHILE, DO, TRUE, FALSE, NULLLIT;
+terminal STRING, INTEGER, FLOAT, BOOLEAN, PRINT, LENGTH, THIS;
+
+/* operators */
+terminal ASSIGN, PLUS, MINUS, TIMES, DIVIDE;
+terminal LT, LE, GT, GE, EQ, NE, AMPERSAND, AMPERSOR, EXCLAIM, TILDE; 
+
+/* delimiters */
+terminal LPAREN, RPAREN, LEFTCURLY, RIGHTCURLY, LEFTSQ, RIGHTSQ, SEMICOLON, COMMA, DOT;
+
+
+/* identifiers */
+terminal String IDENTIFIER, INTEGERLIT, FLOATLIT, STRINGLIT;
+
+/* Nonterminals (constructed by parser): */
+
+nonterminal Program Program;
+nonterminal Statement Statement;
+nonterminal Assign AssignStatement;
+nonterminal Display DisplayStatement;
+nonterminal Exp Expression;
+nonterminal Identifier Identifier;
+nonterminal MainClass MainClass;
+nonterminal Type Type;
+nonterminal ExpList NonEmptyArgList;
+nonterminal ExpList ArgumentList;
+nonterminal ArrayAssign ArrayAssignmentStatement;
+nonterminal Print PrintStatement;
+nonterminal While WhileStatement;
+nonterminal If IfStatement;
+
+nonterminal StatementList NoneEmptyStatement;
+nonterminal StatementList StatementList;
+
+nonterminal VarDeclList VarDeclarationNoneEmpty;
+nonterminal VarDeclList VarDeclarationList;
+nonterminal VarDecl VarDeclaration;
+
+nonterminal FormalList TypeIdentifyNoneEmpty;
+nonterminal Formal TypeIdentifier;
+
+nonterminal MethodDeclList MethodDeclarationNoneEmpty;
+nonterminal MethodDeclList MethodDeclarationList;
+nonterminal MethodDecl MethodDeclaration;
+
+nonterminal ClassDeclList ClassDeclarationNoneEmpty;
+nonterminal ClassDeclList ClassDeclarationList;
+nonterminal ClassDecl ClassDeclaration;
+
+
+/* Precedence declarations: */
+
+precedence left PLUS, MINUS;
+precedence left ASSIGN;
+precedence left TIMES;
+precedence left AMPERSAND;
+precedence left LT;
+precedence right EXCLAIM;
+precedence right NEW;
+precedence left DOT;
+precedence left LEFTCURLY;
+
+/* Productions: */
+                  
+Program ::= MainClass:mc ClassDeclarationList:cdl 
+			{: RESULT = new Program(mc, cdl, mcxleft); :};
+			
+MainClass ::= CLASS:c Identifier:id1 LEFTCURLY PUBLIC STATIC VOID MAIN LPAREN STRING LEFTSQ
+				RIGHTSQ Identifier:id2 RPAREN LEFTCURLY Statement:s RIGHTCURLY RIGHTCURLY
+			{: RESULT = new MainClass(id1, id2, s, cxleft); :};
+	 
+ClassDeclaration ::= CLASS:c Identifier:id1 LEFTCURLY VarDeclarationNoneEmpty:vdl MethodDeclarationList:mdl RIGHTCURLY
+			{: RESULT = new ClassDeclSimple(id1, vdl, mdl, cxleft);:}
+		| CLASS:c Identifier:id1 LEFTCURLY MethodDeclarationList:mdl RIGHTCURLY
+			{: VarDeclList vdl = new VarDeclList(cxleft);
+			   RESULT = new ClassDeclSimple(id1, vdl, mdl, cxleft);:}
+		| CLASS:c Identifier:id1 EXTENDS Identifier:id2 LEFTCURLY VarDeclarationNoneEmpty:vdl MethodDeclarationList:mdl RIGHTCURLY
+			{: RESULT = new ClassDeclExtends(id1, id2, vdl, mdl, cxleft); :}
+		| CLASS:c Identifier:id1 EXTENDS Identifier:id2 LEFTCURLY MethodDeclarationList:mdl RIGHTCURLY
+			{: VarDeclList vdl = new VarDeclList(cxleft);
+			   RESULT = new ClassDeclExtends(id1, id2, vdl, mdl, cxleft); :};
+
+ClassDeclarationList ::= ClassDeclarationNoneEmpty: cdne
+			{: RESULT = cdne; :}
+		|
+			{: Location l = new Location(0, 0);
+			   ClassDeclList cdl = new ClassDeclList(l);
+			   RESULT = cdl;:};
+			
+ClassDeclarationNoneEmpty ::= ClassDeclaration:cd
+			{: 
+				ClassDeclList cdl = new ClassDeclList(cdxleft);
+				cdl.add(cd);
+				RESULT = cdl;
+			:}
+		| ClassDeclarationNoneEmpty:cdne ClassDeclaration:cd
+			{:	
+				cdne.add(cd);
+				RESULT = cdne;
+			:};	 
+			
+VarDeclaration ::= Type:t Identifier:id SEMICOLON
+			{: RESULT = new VarDecl(t, id, txleft); :};
+			
+
+VarDeclarationNoneEmpty ::= VarDeclaration: vd 
+ 			{: VarDeclList vdl = new VarDeclList(vdxleft);
+			   vdl.add(vd);
+			   RESULT = vdl; :}
+ 		|	VarDeclarationNoneEmpty: vdne VarDeclaration: vd 
+ 			{:  vdne.add(vd);
+ 				RESULT = vdne; :};
+
+MethodDeclarationList ::= MethodDeclarationNoneEmpty: mdne
+			{: RESULT = mdne; :}
+		| 
+			{: Location l = new Location(0, 0);
+			   MethodDeclList mdl = new MethodDeclList(l);
+			   RESULT = mdl;:};
+			
+MethodDeclarationNoneEmpty ::= MethodDeclaration:md
+			{: 
+				MethodDeclList mdl = new MethodDeclList(mdxleft);
+				mdl.add(md);
+				RESULT = mdl;
+			:}
+		| MethodDeclarationNoneEmpty:mdne MethodDeclaration:md
+			{:	
+				mdne.add(md);
+				RESULT = mdne;
+			:};	
+
+MethodDeclaration ::= PUBLIC:p Type:t Identifier:id LPAREN RPAREN LEFTCURLY  
+					VarDeclarationNoneEmpty:vdl StatementList:sl RETURN Expression:expr SEMICOLON RIGHTCURLY
+			{: RESULT = new MethodDecl(t, id, new FormalList(pxleft), vdl, sl, expr, pxleft); :}
+		| PUBLIC:p Type:t Identifier:id LPAREN TypeIdentifyNoneEmpty:tine RPAREN LEFTCURLY  
+					VarDeclarationNoneEmpty:vdl StatementList:sl RETURN Expression:expr SEMICOLON RIGHTCURLY
+			{: RESULT = new MethodDecl(t, id, tine, vdl, sl, expr, pxleft); :}
+		| PUBLIC:p Type:t Identifier:id LPAREN RPAREN LEFTCURLY  
+					 StatementList:sl RETURN Expression:expr SEMICOLON RIGHTCURLY
+			{: RESULT = new MethodDecl(t, id, new FormalList(pxleft), new VarDeclList(pxleft), sl, expr, pxleft); :}
+		| PUBLIC:p Type:t Identifier:id LPAREN TypeIdentifyNoneEmpty:tine RPAREN LEFTCURLY  
+					 StatementList:sl RETURN Expression:expr SEMICOLON RIGHTCURLY
+			{: RESULT = new MethodDecl(t, id, tine, new VarDeclList(pxleft), sl, expr, pxleft); :};
+
+			
+TypeIdentifier ::= Type:t Identifier:id 
+			{: RESULT = new Formal(t,id,txleft); :};
+
+TypeIdentifyNoneEmpty ::= TypeIdentifier:ti
+			{: FormalList tine = new FormalList(tixleft); 
+			   tine.add(ti);
+			   RESULT = tine;
+			:}
+		| TypeIdentifyNoneEmpty:tine COMMA TypeIdentifier:ti
+			{: tine.add(ti);
+			   RESULT = tine;
+			:};
+		
+Type ::= INTEGER:i LEFTSQ RIGHTSQ
+			{: RESULT = new IntArrayType(ixleft); :}
+		| BOOLEAN:b
+			{: RESULT = new BooleanType(bxleft); :}
+		| INTEGER:i
+			{: RESULT = new IntegerType(ixleft); :}
+		| Identifier:id
+			{: RESULT = new IdentifierType(id.toString(), idxleft); :};          
+				
+StatementList ::= NoneEmptyStatement:s
+			{: RESULT = s; :}
+		| 
+			{: Location l = new Location(0, 0);
+			   StatementList statementlist = new StatementList(l);
+			   RESULT = statementlist;:};
+
+NoneEmptyStatement ::=  Statement:s
+			{: StatementList statementlist = new StatementList(sxleft);
+			   statementlist.add(s);
+			   RESULT = statementlist;
+			:}
+		| NoneEmptyStatement:nes Statement:s
+			{: nes.add(s); RESULT = nes; :};
+
+Statement ::= LEFTCURLY:lc StatementList:statementlist  RIGHTCURLY
+			{: RESULT = new Block(statementlist, lcxleft); :}
+		| IfStatement:s
+        	{: RESULT = s; :}
+		| WhileStatement:s
+        	{: RESULT = s; :}
+        | PrintStatement:s
+        	{: RESULT = s; :}
+        | AssignStatement:s
+        	{: RESULT = s; :}
+        | DisplayStatement:s
+        	{: RESULT = s; :}
+        | ArrayAssignmentStatement:s
+        	{: RESULT = s; :};	
+
+IfStatement ::= IF:i LPAREN Expression:expr RPAREN Statement:s1 ELSE Statement:s2
+			{: RESULT = new If(expr, s1, s2, ixleft); :};
+
+WhileStatement ::= WHILE:w LPAREN Expression:expr RPAREN Statement:s
+			{: RESULT = new While(expr, s, wxleft); :};
+
+PrintStatement ::= PRINT:p LPAREN Expression:expr RPAREN SEMICOLON
+			{: RESULT = new Print(expr, pxleft); :};
+			
+AssignStatement ::= Identifier:id ASSIGN Expression:expr SEMICOLON
+			{: RESULT = new Assign(id, expr, idxleft); :};
+
+DisplayStatement ::= DISPLAY:d Expression:expr SEMICOLON
+			{: RESULT = new Display(expr, dxleft); :};
+			
+ArrayAssignmentStatement ::= Identifier:id LEFTSQ Expression:arg1 RIGHTSQ ASSIGN Expression:arg2 SEMICOLON
+			{: RESULT = new ArrayAssign(id, arg1, arg2, idxleft); :};
+
+Expression    ::= Expression:arg1 PLUS Expression:arg2
+            {: RESULT = new Plus(arg1, arg2, arg1xleft); :}
+        | Expression:arg1 AMPERSAND Expression:arg2
+            {: RESULT = new And(arg1, arg2, arg1xleft); :}
+        | Expression:arg1 LT Expression:arg2
+        	{: RESULT = new LessThan(arg1, arg2, arg1xleft); :}
+        | Expression:arg1 MINUS Expression:arg2
+        	{: RESULT = new Minus(arg1, arg2, arg1xleft); :}
+        | Expression:arg1 TIMES Expression:arg2
+        	{: RESULT = new Times(arg1, arg2, arg1xleft); :}
+        | Expression:expr1 LEFTSQ Expression:expr2 RIGHTSQ
+        	{: RESULT = new ArrayLookup(expr1, expr2, expr1xleft); :}
+        | Expression:expr DOT LENGTH
+        	{: RESULT = new ArrayLength(expr, exprxleft); :}
+        | Expression: expr DOT Identifier:id LPAREN ArgumentList:arglist RPAREN
+        	{: RESULT = new Call(expr, id, arglist, exprxleft);:}
+        | INTEGERLIT: inte
+        	{: RESULT = new IntegerLiteral( Integer.parseInt(inte), intexleft); :}
+        | TRUE: tru
+        	{: RESULT = new True(truxleft); :}
+        | FALSE: fls
+        	{: RESULT = new False(flsxleft); :}
+        | Identifier:name
+            {: RESULT = new IdentifierExp(name.toString(), namexleft); :}	
+        | THIS:ths
+        	{: RESULT = new This(thsxleft); :}    		
+        | NEW:n INTEGER LEFTSQ Expression:expr RIGHTSQ
+        	{: RESULT = new NewArray(expr, nxleft); :}
+        | NEW:n Identifier:id LPAREN RPAREN
+        	{: RESULT = new NewObject(id, nxleft); :}
+        | EXCLAIM:e Expression:expr
+        	{: RESULT = new Not(expr, exleft); :}
+        | LPAREN Expression:expr RPAREN
+            {: RESULT = expr; :};
+        
+ArgumentList ::= NonEmptyArgList:neal
+			{: RESULT = neal; :}
+		|
+			{: Location l = new Location(0, 0);
+			   ExpList ep = new ExpList(l);
+               RESULT = ep;:};
+
+NonEmptyArgList ::= Expression: expr
+			{:	ExpList ep = new ExpList(exprxleft);
+               	ep.add(expr); 
+               	RESULT = ep; :}
+		| NonEmptyArgList: neal COMMA Expression: expr
+			{: neal.add(expr); 
+			   RESULT = neal; :};
+			
+Identifier  ::= IDENTIFIER:id
+                {: RESULT = new Identifier(id, idxleft); :};
+
+
